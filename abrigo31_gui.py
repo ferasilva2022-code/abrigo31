@@ -1,12 +1,114 @@
 """
-ABRIGO 31 — versão com interface gráfica (tkinter, já vem com o Python).
-Reaproveita os dados e o motor de dedução de abrigo31.py.
-Os dois arquivos precisam estar na mesma pasta. Rode: python3 abrigo31_gui.py
+ABRIGO 31 — Quando a Sirene Toca (versão com interface, arquivo único).
+Não depende de nenhum outro arquivo. Pode salvar com qualquer nome.
 """
+
 import tkinter as tk
 from tkinter import messagebox
 
-from abrigo31 import LOCAIS, ITENS, SUSPEITOS, CULPADO, texto, deduzir
+
+
+
+# ---------------------------------------------------------------- PROPOSIÇÕES
+PROP = {
+    "P": "Portas trancadas durante a Hora Cinza",
+    "Q": "Vivienne morreu durante a Hora Cinza",
+    "R": "O culpado entrou no Gabinete",
+    "S": "O culpado acionou o mecanismo remotamente",
+    "L": "Dante usou a chave mestra",
+    "M": "Scarlett manipulou o reator",
+    "G": "O registro das portas apresentou anomalia",
+    "A": "Axel subiu à superfície",
+    "B": "Dosímetro de Axel acima do limite",
+    "C": "Scarlett é a culpada",
+}
+
+# ------------------------------------------------------------- PERSONAGENS
+SUSPEITOS = {
+    "adrian":   ("Adrian Keller", "médico",
+                 "Sim, faltam doses de soro. Mas eu passei a Hora Cinza na Enfermaria."),
+    "scarlett": ("Scarlett Hayes", "engenheira",
+                 "O reator? Eu só fiz a manutenção de rotina... acho. A neblina confunde tudo."),
+    "dante":    ("Dante Mercer", "chefe de segurança",
+                 "A chave mestra nunca saiu do cofre. Confira o lacre se quiser."),
+    "raven":    ("Raven Sinclair", "operadora de rádio",
+                 "Captei algo às 3h07. Está no rádio portátil. Ouça você mesmo."),
+    "elias":    ("Elias Crowe", "líder religioso",
+                 "Discuti com ela, sim. Mas a Hora Cinza é um julgamento, não um crime."),
+    "axel":     ("Axel 'Rust' Carter", "explorador",
+                 "Não subi nessa noite. Se quiser, olha meu dosímetro."),
+    "violet":   ("Violet Ashford", "encarregada do estoque",
+                 "Mexi nos registros de suprimentos, e daí? Isso não mata ninguém."),
+}
+CULPADO = "scarlett"
+
+# --------------------------------------------- ITENS (cada um revela um fato)
+ITENS = {
+    "registro":  ("Registro automático das portas",
+                  "Entre 3h00 e 3h20 todas as portas ficaram trancadas.", "P"),
+    "radio":     ("Rádio portátil",
+                  "Gravação das 3h07: Vivienne pede socorro em plena Hora Cinza.", "Q"),
+    "pe_cabra":  ("Pé de cabra",
+                  "Limpo, sem marcas. A porta do Gabinete nunca foi forçada.", "~R"),
+    "chave":     ("Chave mestra",
+                  "Encontrada no cofre da segurança com o lacre intacto.", "~L"),
+    "dosimetro": ("Dosímetro pessoal de Axel",
+                  "Leitura normal: abaixo do limite de radiação.", "~B"),
+    "diario":    ("Diário da supervisora",
+                  "'O registro das portas mostrou anomalias de novo. Alguém mexe nos sistemas.'", "G"),
+    "seringa":   ("Seringa antirradiação",
+                  "Soro comum. Não foi isso que a matou.", None),          # pista falsa
+    "mascara":   ("Máscara de gás",
+                  "Cheiro forte de gás tóxico perto do duto do reator.", None),
+}
+
+# ------------------------------------------------------------------- LOCAIS
+LOCAIS = {
+    "gabinete":  ("Gabinete da Supervisora", ["registro", "diario"]),
+    "reator":    ("Sala do Reator", ["mascara"]),
+    "enfermaria":("Enfermaria", ["seringa"]),
+    "radio":     ("Sala de Rádio", ["radio"]),
+    "capela":    ("Capela", ["chave"]),
+    "estufa":    ("Estufa Hidropônica", []),
+    "escotilha": ("Escotilha de Superfície", ["dosimetro"]),
+    "deposito":  ("Depósito", ["pe_cabra"]),
+}
+
+# ------------------------------------------------ REGRAS DE INFERÊNCIA
+# (precisa_de, conclusão, nome da regra) — premissas 2, 4, 5, 7 e 8 já embutidas
+REGRAS = [
+    ({"P", "Q"},  "RvS", "Modus Ponens (P∧Q → R∨S)"),
+    ({"RvS", "~R"}, "S", "Silogismo Disjuntivo"),
+    ({"S"},       "LvM", "Modus Ponens (S → L∨M)"),
+    ({"LvM", "~L"}, "M", "Silogismo Disjuntivo"),
+    ({"M"},       "C",   "Modus Ponens (M → C)"),
+    ({"~B"},      "~A",  "Modus Tollens (A → B, ¬B)"),
+    ({"LvM"},     "G",   "Dilema Construtivo ((L→G)∧(M→G))"),
+]
+
+
+def texto(lit):
+    if lit in ("RvS", "LvM"):
+        a, b = lit.split("v")
+        return f"{lit[0]} ∨ {lit[2]}: {PROP[a]} OU {PROP[b]}"
+    neg = lit.startswith("~")
+    base = PROP[lit.lstrip("~")]
+    return f"{'¬' if neg else ''}{lit.lstrip('~')}: {'NÃO: ' if neg else ''}{base}"
+
+
+def deduzir(fatos):
+    novos = []
+    mudou = True
+    while mudou:
+        mudou = False
+        for precisa, conclusao, nome in REGRAS:
+            if precisa <= fatos and conclusao not in fatos:
+                fatos.add(conclusao)
+                novos.append((conclusao, nome))
+                mudou = True
+    return novos
+
+
 
 # Paleta inspirada na apresentação (escuro, bege, âmbar)
 BG, PAINEL, BEGE, AMBAR, VERDE, CINZA = "#141210", "#201d1a", "#e8d9c4", "#d9a441", "#8fbf7a", "#7a7068"
